@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { containsProfanity } from '@/lib/moderation'
+import { evaluateSubmission } from '@/lib/moderation'
 import { z } from 'zod'
 
 const questionSchema = z.object({
@@ -25,7 +25,7 @@ export async function GET() {
   }
 }
 
-// POST: Submit a new anonymous question with moderation check
+// POST: Submit a new anonymous question with hybrid moderation routing
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -37,26 +37,28 @@ export async function POST(request: Request) {
 
     const { title, content, tags } = validation.data
 
-    const titleFlagged = containsProfanity(title)
-    const contentFlagged = containsProfanity(content)
+    // Evaluate content using the hybrid moderation engine
+    const evaluation = evaluateSubmission(`${title} ${content}`)
+    const isApproved = evaluation.status === 'APPROVED'
 
-    if (titleFlagged || contentFlagged) {
-      return NextResponse.json(
-        { error: 'Your submission contains prohibited language or policy violations.' },
-        { status: 403 }
-      )
-    }
+    // Create the question with dynamic approval status
+    const newQuestion = await prisma.question.create({
+      data: {
+        title,
+        content,
+        tags: tags || 'general',
+        isApproved, // True goes live instantly; False routes to /admin queue
+      },
+    })
 
-    // POST: Submit a new anonymous question for moderation
-const newQuestion = await prisma.question.create({
-  data: {
-    title,
-    content,
-    tags: tags || 'general',
-    isApproved: false, // Ensures it waits for admin approval before appearing publicly
-  },
-})
-    return NextResponse.json(newQuestion, { status: 201 })
+    return NextResponse.json(
+      { 
+        question: newQuestion, 
+        status: evaluation.status,
+        message: isApproved ? 'Published successfully' : 'Submitted for admin review' 
+      }, 
+      { status: 201 }
+    )
   } catch (error) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
