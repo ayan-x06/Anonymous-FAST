@@ -26,9 +26,9 @@ export default function AdminDashboard() {
   const [pendingReviews, setPendingReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(false)
 
-  // Hardcoded simple admin check matching your setup
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
+    // Matches your password setup
     if (password === 'pheonxzvanguard2007') {
       setIsAuthenticated(true)
       fetchPendingData()
@@ -40,21 +40,27 @@ export default function AdminDashboard() {
   const fetchPendingData = async () => {
     setLoading(true)
     try {
-      // Fetch unapproved questions & reviews
       const [qRes, rRes] = await Promise.all([
-        fetch('/api/admin/questions'), // Or your corresponding admin fetch endpoints
+        fetch('/api/admin/questions'),
         fetch('/api/admin/reviews')
       ])
-      // If you are using direct prisma calls or standard endpoints, adjust below as needed
+
+      if (qRes.ok) {
+        const qData = await qRes.json()
+        setPendingQuestions(qData)
+      }
+      if (rRes.ok) {
+        const rData = await rRes.json()
+        setPendingReviews(rData)
+      }
     } catch (error) {
-      console.error('Failed to fetch admin data', error)
+      console.error('Failed to fetch pending admin data:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  // Action handler to Approve or Delete
-  const handleAction = async (type: 'question' | 'review', id: string, action: 'approve' | 'delete') => {
+  const handleAction = async (type: 'questions' | 'reviews', id: string, action: 'approve' | 'delete') => {
     try {
       const res = await fetch(`/api/admin/${type}`, {
         method: 'POST',
@@ -63,16 +69,16 @@ export default function AdminDashboard() {
       })
 
       if (res.ok) {
-        if (type === 'question') {
+        if (type === 'questions') {
           setPendingQuestions(prev => prev.filter(q => q.id !== id))
         } else {
           setPendingReviews(prev => prev.filter(r => r.id !== id))
         }
       } else {
-        alert('Action failed.')
+        alert('Action failed to execute.')
       }
     } catch (err) {
-      console.error(err)
+      console.error('Error performing admin action:', err)
     }
   }
 
@@ -88,7 +94,7 @@ export default function AdminDashboard() {
             onChange={(e) => setPassword(e.target.value)}
             className="w-full p-2 mb-4 bg-gray-700 rounded border border-gray-600 focus:outline-none"
           />
-          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 p-2 rounded font-semibold">
+          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 p-2 rounded font-semibold transition">
             Login
           </button>
         </form>
@@ -99,46 +105,74 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6 text-gray-800">Admin Moderation Queue</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-800">Admin Moderation Queue</h1>
+          <button 
+            onClick={fetchPendingData}
+            className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm font-medium transition"
+          >
+            {loading ? 'Refreshing...' : 'Refresh Queue'}
+          </button>
+        </div>
         
         {/* Pending Questions Section */}
-        <section className="mb-8">
+        <section className="mb-10">
           <h2 className="text-xl font-semibold text-blue-600 mb-4">Pending Questions ({pendingQuestions.length})</h2>
           {pendingQuestions.length === 0 ? (
-            <p className="text-gray-500 bg-white p-4 rounded shadow-sm">No pending questions.</p>
+            <p className="text-gray-500 bg-white p-4 rounded shadow-sm border border-gray-200">No pending questions.</p>
           ) : (
             pendingQuestions.map(q => (
-              <div key={q.id} className="bg-white p-4 rounded shadow-md mb-4 flex justify-between items-center">
-                <div>
+              <div key={q.id} className="bg-white p-5 rounded-lg shadow-md mb-4 flex justify-between items-start border border-gray-200">
+                <div className="pr-4">
                   <h3 className="font-bold text-lg text-gray-800">{q.title}</h3>
-                  <p className="text-gray-600 text-sm mt-1">{q.content}</p>
-                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded mt-2 inline-block">#{q.tags}</span>
+                  <p className="text-gray-600 text-sm mt-1 whitespace-pre-wrap">{q.content}</p>
+                  <span className="text-xs bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-medium mt-3 inline-block">#{q.tags}</span>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => handleAction('question', q.id, 'approve')} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">Approve</button>
-                  <button onClick={() => handleAction('question', q.id, 'delete')} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm">Delete</button>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button 
+                    onClick={() => handleAction('questions', q.id, 'approve')} 
+                    className="bg-green-600 hover:bg-green-700 text-white px-3.5 py-1.5 rounded text-sm font-medium transition"
+                  >
+                    Approve
+                  </button>
+                  <button 
+                    onClick={() => handleAction('questions', q.id, 'delete')} 
+                    className="bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded text-sm font-medium transition"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             ))
           )}
         </section>
 
-        {/* Pending Reviews Section */}
+        {/* Pending Teacher Reviews Section */}
         <section>
           <h2 className="text-xl font-semibold text-blue-600 mb-4">Pending Teacher Reviews ({pendingReviews.length})</h2>
           {pendingReviews.length === 0 ? (
-            <p className="text-gray-500 bg-white p-4 rounded shadow-sm">No pending teacher reviews.</p>
+            <p className="text-gray-500 bg-white p-4 rounded shadow-sm border border-gray-200">No pending teacher reviews.</p>
           ) : (
             pendingReviews.map(r => (
-              <div key={r.id} className="bg-white p-4 rounded shadow-md mb-4 flex justify-between items-center">
-                <div>
+              <div key={r.id} className="bg-white p-5 rounded-lg shadow-md mb-4 flex justify-between items-start border border-gray-200">
+                <div className="pr-4">
                   <h3 className="font-bold text-lg text-gray-800">{r.teacherName} <span className="text-sm font-normal text-gray-500">({r.courseCode})</span></h3>
-                  <p className="text-gray-600 text-sm mt-1">{r.reviewText}</p>
-                  <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded mt-2 inline-block">Rating: {r.rating}/5</span>
+                  <p className="text-gray-600 text-sm mt-1 whitespace-pre-wrap">{r.reviewText}</p>
+                  <span className="text-xs bg-yellow-100 text-yellow-800 px-2.5 py-1 rounded-full font-medium mt-3 inline-block">Rating: {r.rating}/5</span>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => handleAction('review', r.id, 'approve')} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">Approve</button>
-                  <button onClick={() => handleAction('review', r.id, 'delete')} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm">Delete</button>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button 
+                    onClick={() => handleAction('reviews', r.id, 'approve')} 
+                    className="bg-green-600 hover:bg-green-700 text-white px-3.5 py-1.5 rounded text-sm font-medium transition"
+                  >
+                    Approve
+                  </button>
+                  <button 
+                    onClick={() => handleAction('reviews', r.id, 'delete')} 
+                    className="bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded text-sm font-medium transition"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             ))
