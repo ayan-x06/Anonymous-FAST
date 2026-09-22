@@ -45,6 +45,10 @@ export default function Home() {
   const [qError, setQError] = useState('')
   const [qSuccess, setQSuccess] = useState('')
 
+  // Answer Submission & Input States
+  const [submittingIds, setSubmittingIds] = useState<{ [key: string]: boolean }>({})
+  const [replyText, setReplyText] = useState<{ [key: string]: string }>({})
+
   // Review Form States
   const [rTeacher, setRTeacher] = useState('')
   const [rCourse, setRCourse] = useState('')
@@ -107,6 +111,37 @@ export default function Home() {
       setQError('Network error. Please try again.')
     } finally {
       setQSubmitting(false)
+    }
+  }
+
+  // Handle Answer Submission with Double-Click Prevention
+  const handleAnswerSubmit = async (questionId: string, content: string = '') => {
+    if (!content.trim() || submittingIds[questionId]) return
+
+    // Mark this question's reply form as submitting to prevent double-clicks
+    setSubmittingIds(prev => ({ ...prev, [questionId]: true }))
+
+    try {
+      const res = await fetch('/api/answers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questionId, content }),
+      })
+      const data = await res.json()
+
+      if (res.ok) {
+        // Clear the input value for this specific question
+        setReplyText(prev => ({ ...prev, [questionId]: '' }))
+        fetchData() 
+      } else {
+        alert(data.error?.message || data.error || 'Failed to submit answer.')
+      }
+    } catch (error) {
+      console.error('Failed to submit answer', error)
+      alert('Network error posting answer.')
+    } finally {
+      // Re-enable the button
+      setSubmittingIds(prev => ({ ...prev, [questionId]: false }))
     }
   }
 
@@ -336,14 +371,14 @@ export default function Home() {
                     <h4 className="text-lg font-semibold text-[#0F172A]">{q.title}</h4>
                     <p className="mt-2 text-sm text-[#64748B] leading-relaxed">{q.content}</p>
                     
-                    {/* Answers Section - Guaranteed Render */}
-<div className="mt-6 pt-4 border-t border-[#E2E8F0] space-y-3">
-  <div className="flex items-center justify-between">
-    <h5 className="text-xs font-bold uppercase tracking-wider text-[#64748B]">
-      Answers ({q.answers?.length || 0})
-    </h5>
-  </div>
-  ...
+                    {/* Answers Section */}
+                    <div className="mt-6 pt-4 border-t border-[#E2E8F0] space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h5 className="text-xs font-bold uppercase tracking-wider text-[#64748B]">
+                          Answers ({q.answers?.length || 0})
+                        </h5>
+                      </div>
+
                       {/* List existing answers if any */}
                       <div className="space-y-2">
                         {q.answers && q.answers.length > 0 ? (
@@ -360,47 +395,23 @@ export default function Home() {
                         )}
 
                         {/* Answer Input Form */}
-                        <form 
-                          onSubmit={async (e) => {
-                            e.preventDefault()
-                            const form = e.currentTarget
-                            const input = form.elements.namedItem('answerContent') as HTMLInputElement
-                            if (!input || !input.value.trim()) return
-
-                            try {
-                              const res = await fetch('/api/answers', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ questionId: q.id, content: input.value })
-                              })
-                              const data = await res.json()
-
-                              if (res.ok) {
-                                input.value = ''
-                                alert('Answer submitted successfully!')
-                                fetchData()
-                              } else {
-                                alert(data.error?.message || data.error || 'Failed to submit answer.')
-                              }
-                            } catch (err) {
-                              alert('Network error posting answer.')
-                            }
-                          }}
-                          className="flex gap-2 pt-3"
-                        >
+                        <div className="flex gap-2 pt-3">
                           <input
                             type="text"
-                            name="answerContent"
                             placeholder="Write an anonymous answer..."
+                            value={replyText[q.id] || ''}
+                            onChange={(e) => setReplyText(prev => ({ ...prev, [q.id]: e.target.value }))}
                             className="flex-1 h-10 rounded-xl border border-[#E2E8F0] px-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#0052FF] bg-[#FAFAFA]"
                           />
                           <button
-                            type="submit"
-                            className="h-10 px-4 rounded-xl bg-[#0052FF] text-white text-xs font-medium hover:bg-blue-750 transition-all"
+                            type="button"
+                            disabled={submittingIds[q.id]}
+                            onClick={() => handleAnswerSubmit(q.id, replyText[q.id])}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-xs font-medium transition-all"
                           >
-                            Reply
+                            {submittingIds[q.id] ? 'Replying...' : 'Reply'}
                           </button>
-                        </form>
+                        </div>
                       </div>
                     </div>
 
