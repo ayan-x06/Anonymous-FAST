@@ -15,14 +15,18 @@ export async function GET() {
     const questions = await prisma.question.findMany({
       where: { isApproved: true },
       orderBy: { createdAt: 'desc' },
-      include: { answers: true },
+      include: { 
+        answers: {
+          where: { isApproved: true }, // Only show approved answers publicly
+          orderBy: { createdAt: 'asc' }
+        } 
+      },
     })
     return NextResponse.json(questions, { status: 200 })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch questions' }, { status: 500 })
   }
 }
-
 // POST: Submit a new question from the public frontend form
 export async function POST(request: Request) {
   try {
