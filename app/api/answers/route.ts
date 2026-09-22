@@ -1,26 +1,23 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const { content, questionId } = await request.json()
-
+    const { questionId, content } = await req.json()
+    
     if (!content || !questionId) {
-      return NextResponse.json({ error: 'Missing content or question ID' }, { status: 400 })
+      return NextResponse.json({ error: 'Content and questionId are required' }, { status: 400 })
     }
 
-    // ANSWERS PUBLIC ROUTE.TS
-const newAnswer = await prisma.answer.create({
-  data: {
-    content,
-    questionId,
-    isApproved: true, // <--- Change this from false to true so it passes the public feed filter right away
-  },
-})
+    const answer = await prisma.answer.create({
+      data: {
+        content,
+        questionId,
+      },
+    })
 
-    return NextResponse.json({ success: true, answer: newAnswer }, { status: 201 })
+    return NextResponse.json(answer, { status: 201 })
   } catch (error) {
-    console.error('Answer Submission Error:', error)
-    return NextResponse.json({ error: 'Failed to submit answer' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create answer' }, { status: 500 })
   }
 }

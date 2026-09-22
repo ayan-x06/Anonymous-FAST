@@ -13,18 +13,14 @@ const questionSchema = z.object({
 export async function GET() {
   try {
     const questions = await prisma.question.findMany({
-      where: { isApproved: true },
-      orderBy: { createdAt: 'desc' },
-      include: { 
-        answers: {
-          where: { isApproved: true }, 
-          orderBy: { createdAt: 'asc' }
-        } 
+      include: {
+        answers: true, // Required to fetch nested answers
       },
+      orderBy: { createdAt: 'desc' },
     })
-    return NextResponse.json(questions, { status: 200 })
+    return NextResponse.json(questions)
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch questions' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 })
   }
 }
 // POST: Submit a new question from the public frontend form
