@@ -374,36 +374,54 @@ export default function Home() {
                         Answers ({q.answers?.length || q._count?.answers || 0})
                       </h5>
 
-                      {q.answers && q.answers.length > 0 && (
-                        <div className="space-y-2">
-                          {q.answers.map((ans) => (
-                            <div key={ans.id} className="bg-[#FAFAFA] border border-[#E2E8F0] p-3 rounded-xl text-sm text-[#0F172A]">
-                              <p>{ans.content}</p>
-                              <span className="text-[10px] text-[#64748B] mt-1 block">
-                                {new Date(ans.createdAt).toLocaleDateString()}
-                              </span>
+                      {/* List existing approved answers */}
+                      <div className="space-y-2 pt-3 border-t border-gray-100">
+                        {q.answers && q.answers.length > 0 ? (
+                          q.answers.map((a: any) => (
+                            <div key={a.id} className="text-xs bg-gray-50 p-2.5 rounded-xl text-gray-700">
+                              {a.content}
                             </div>
-                          ))}
-                        </div>
-                      )}
+                          ))
+                        ) : (
+                          <p className="text-[11px] text-gray-400">0 Answers</p>
+                        )}
 
-                      {/* Post Answer Form */}
-                      <form onSubmit={(e) => handleAnswerSubmit(e, q.id)} className="flex gap-2 pt-2">
-                        <input
-                          type="text"
-                          placeholder="Write an anonymous answer..."
-                          value={answerInputs[q.id] || ''}
-                          onChange={(e) => setAnswerInputs({ ...answerInputs, [q.id]: e.target.value })}
-                          className="flex-1 h-10 rounded-xl border border-[#E2E8F0] px-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#0052FF] bg-[#FAFAFA]"
-                        />
-                        <button
-                          type="submit"
-                          disabled={submittingAnswerId === q.id}
-                          className="h-10 px-4 rounded-xl bg-[#0052FF] text-white text-xs font-medium hover:bg-[#0052FF]/90 transition-all disabled:opacity-50"
+                        {/* Answer Input Form */}
+                        <form 
+                          onSubmit={async (e) => {
+                            e.preventDefault()
+                            const form = e.currentTarget
+                            const input = form.elements.namedItem('answerContent') as HTMLInputElement
+                            if (!input.value.trim()) return
+
+                            const res = await fetch('/api/answers', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ questionId: q.id, content: input.value })
+                            })
+
+                            if (res.ok) {
+                              input.value = ''
+                              alert('Answer submitted for approval!')
+                              fetchData()
+                            }
+                          }}
+                          className="flex gap-2 pt-2"
                         >
-                          {submittingAnswerId === q.id ? 'Posting...' : 'Answer'}
-                        </button>
-                      </form>
+                          <input
+                            type="text"
+                            name="answerContent"
+                            placeholder="Write an anonymous answer..."
+                            className="flex-1 h-9 rounded-xl border border-gray-200 px-3 text-xs focus:outline-none bg-gray-50"
+                          />
+                          <button
+                            type="submit"
+                            className="h-9 px-4 rounded-xl bg-[#0052FF] text-white text-xs font-medium hover:bg-blue-700"
+                          >
+                            Answer
+                          </button>
+                        </form>
+                      </div>
                     </div>
 
                     <div className="mt-4 flex items-center justify-between pt-4 border-t border-[#E2E8F0] text-xs text-[#64748B]">
