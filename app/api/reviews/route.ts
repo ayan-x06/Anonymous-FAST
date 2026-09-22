@@ -27,7 +27,7 @@ export async function GET() {
   }
 }
 
-// POST: Submit a new teacher review with hybrid moderation routing
+// POST: Submit a new teacher review with immediate AI blocking
 export async function POST(request: Request) {
   try {
     // 1. Basic Rate Limiting Defense against spam/script floods
@@ -62,9 +62,15 @@ export async function POST(request: Request) {
     const normalizedTeacher = teacherName.trim()
     const normalizedText = reviewText.trim()
 
-    // 2. Hybrid Moderation Check (Routes flagged items to admin queue instead of 403 blocking)
-    const evaluation = await evaluateSubmission(normalizedText);
-    const isApproved = evaluation.status === 'APPROVED'
+    // 2. Hybrid Moderation Check (Immediately blocks toxic/flagged content)
+    const evaluation = await evaluateSubmission(normalizedText)
+
+    if (evaluation.status === 'PENDING_REVIEW') {
+      return NextResponse.json(
+        { error: `Review blocked: ${evaluation.reason || 'Contains prohibited or toxic language.'}` },
+        { status: 403 }
+      )
+    }
 
     // 3. Duplicate Review Protection
     // Prevents identical text submissions for the same professor to protect the database
@@ -82,7 +88,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // 4. Create Review in Database with dynamic approval routing
+    // 4. Create Review in Database (Approved instantly since it passed moderation)
     const newReview = await prisma.teacherReview.create({
       data: {
         teacherName: normalizedTeacher,
@@ -90,13 +96,13 @@ export async function POST(request: Request) {
         rating,
         reviewText: normalizedText,
         gradingEase,
-        isApproved, // True goes live instantly; False routes straight to /admin queue
+        isApproved: true, // Automatically live since blocked content never reaches this line
       },
     })
 
     return NextResponse.json(
       { 
-        message: isApproved ? 'Review published successfully!' : 'Review submitted for admin review.', 
+        message: 'Review published successfully!', 
         status: evaluation.status,
         newReview 
       },

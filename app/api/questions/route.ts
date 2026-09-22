@@ -37,28 +37,34 @@ export async function POST(request: Request) {
 
     const { title, content, tags } = validation.data
 
-    // Evaluate content using the hybrid moderation engine
-    const evaluation = await evaluateSubmission(`${title} ${content}`);
-    const isApproved = evaluation.status === 'APPROVED'
+   // 2. Hybrid Moderation Check
+const evaluation = await evaluateSubmission(`${title} ${content}`)
 
-    // Create the question with dynamic approval status
-    const newQuestion = await prisma.question.create({
-      data: {
-        title,
-        content,
-        tags: tags || 'general',
-        isApproved, // True goes live instantly; False routes to /admin queue
-      },
-    })
+if (evaluation.status === 'PENDING_REVIEW') {
+  return NextResponse.json(
+    { error: `Submission blocked: ${evaluation.reason || 'Contains prohibited or toxic language.'}` },
+    { status: 403 }
+  )
+}
 
+// Then create it directly as approved since it passed moderation
+const newQuestion = await prisma.question.create({
+  data: {
+    title,
+    content,
+    tags: tags || 'general',
+    isApproved: true, // Automatically live if it bypassed the block
+  },
+})
     return NextResponse.json(
-      { 
-        question: newQuestion, 
+      {
+        question: newQuestion,
         status: evaluation.status,
-        message: isApproved ? 'Published successfully' : 'Submitted for admin review' 
-      }, 
+        message: 'Published successfully!', // ✅ Fixed
+      },
       { status: 201 }
     )
+    
   } catch (error) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
