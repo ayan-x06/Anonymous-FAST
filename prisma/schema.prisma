@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Table 1: Anonymous Q&A Posts
+model Question {
+  id         String   @id @default(cuid())
+  title      String
+  content    String
+  tags       String   @default("general")
+  isApproved Boolean  @default(false)  // <--- Ensure this is saved here
+  createdAt  DateTime @default(now())
+  answers    Answer[]
+}
+
+// Table 2: Answers to Q&A Posts
+model Answer {
+  id         String   @id @default(uuid())
+  content    String   // The response text
+  questionId String   // Links back to the parent Question
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+}
+
+// Table 3: Teacher Reviews (FAST-NUCES Faculty Hub)
+model TeacherReview {
+  id          String   @id @default(cuid())
+  teacherName String
+  courseCode  String
+  rating      Int
+  gradingEase Int
+  reviewText  String
+  isApproved  Boolean  @default(false) // <--- Add this line here!
+  createdAt   DateTime @default(now())
+}
+
+
+
