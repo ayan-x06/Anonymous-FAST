@@ -12,7 +12,7 @@ function normalizeText(text: string): string {
     .replace(/[^a-z]/g, ''); // Removes spaces, punctuation, and symbols
 }
 
-// 2. The Main Profanity Checker Function (Exported for your API routes)
+// 2. The Main Profanity Checker Function
 export function containsProfanity(inputText: string): boolean {
   // Layer 1: Check exact words
   const words = inputText.toLowerCase().split(/\s+/);
@@ -32,4 +32,21 @@ export function containsProfanity(inputText: string): boolean {
   }
 
   return false;
+}
+
+// 3. Hybrid Moderation Evaluator (Routes flagged items to admin queue)
+export function evaluateSubmission(inputText: string): { status: 'APPROVED' | 'PENDING_REVIEW'; reason?: string } {
+  if (containsProfanity(inputText)) {
+    return { status: 'PENDING_REVIEW', reason: 'Flagged by automated profanity filter' };
+  }
+  
+  const lowerText = inputText.toLowerCase();
+  const suspiciousKeywords = ['strike', 'boycott', 'shutdown', 'fraud', 'scam', 'terrible administration', 'protest'];
+  const hasSuspiciousContent = suspiciousKeywords.some(keyword => lowerText.includes(keyword));
+
+  if (hasSuspiciousContent) {
+    return { status: 'PENDING_REVIEW', reason: 'Flagged for campus/administrative review' };
+  }
+
+  return { status: 'APPROVED' };
 }
