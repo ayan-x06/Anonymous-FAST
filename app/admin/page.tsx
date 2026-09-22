@@ -36,13 +36,7 @@ export default function AdminDashboard() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    
-    const enteredPass = passwordInput.trim()
-    
-    // Matches your ADMIN_SECRET from the .env file
-    const validPassword = 'pheonxzvanguard2007'
-
-    if (enteredPass === validPassword) {
+    if (passwordInput.trim() === 'pheonxzvanguard2007') {
       setIsAuthenticated(true)
       setAuthError(false)
     } else {
@@ -53,12 +47,10 @@ export default function AdminDashboard() {
   const fetchAllAdminData = async () => {
     setLoading(true)
     try {
-      // ADDED /admin/ TO THESE URLS
       const [qRes, rRes] = await Promise.all([
         fetch('/api/admin/questions'),
         fetch('/api/admin/reviews'),
       ])
-      // ... rest of the code remains the same
       
       if (qRes.ok) {
         const qData = await qRes.json()
@@ -75,24 +67,32 @@ export default function AdminDashboard() {
     }
   }
 
- const handleDelete = async (endpoint: string, id: string) => {
-    if (!confirm(`Are you sure you want to remove this item?`)) return
+  // Instant UI State update without full page reloads or dialog boxes
+  const handleDelete = async (endpoint: 'questions' | 'answers' | 'reviews', id: string) => {
+    // Optimistically update frontend state immediately for zero latency
+    if (endpoint === 'questions') {
+      setQuestions(prev => prev.filter(q => q.id !== id))
+    } else if (endpoint === 'answers') {
+      setQuestions(prev => prev.map(q => ({
+        ...q,
+        answers: q.answers?.filter(a => a.id !== id)
+      })))
+    } else if (endpoint === 'reviews') {
+      setReviews(prev => prev.filter(r => r.id !== id))
+    }
 
     try {
-      // ADDED /admin/ TO THIS URL
       const res = await fetch(`/api/admin/${endpoint}?id=${id}`, {
         method: 'DELETE',
       })
-      // ... rest of the code remains the same
 
-      if (res.ok) {
-        fetchAllAdminData()
-      } else {
-        alert('Failed to delete item from server.')
+      if (!res.ok) {
+        console.error('Server failed to delete item, refetching...')
+        fetchAllAdminData() // Rollback/refetch if server errored
       }
     } catch (err) {
-      console.error('Error deleting item', err)
-      alert('Network error while deleting.')
+      console.error('Network error while deleting', err)
+      fetchAllAdminData()
     }
   }
 
@@ -141,7 +141,7 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Master Admin Control Panel</h1>
-            <p className="text-xs text-[#64748B] mt-1">Manage, moderate, or remove user-submitted content.</p>
+            <p className="text-xs text-[#64748B] mt-1">Manage, moderate, or remove user-submitted content instantly.</p>
           </div>
           <div className="flex gap-3">
             <button
