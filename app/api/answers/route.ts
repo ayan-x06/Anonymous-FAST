@@ -1,23 +1,15 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-export async function POST(req: Request) {
+export async function DELETE(request: Request) {
   try {
-    const { questionId, content } = await req.json()
-    
-    if (!content || !questionId) {
-      return NextResponse.json({ error: 'Content and questionId are required' }, { status: 400 })
-    }
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 })
 
-    const answer = await prisma.answer.create({
-      data: {
-        content,
-        questionId,
-      },
-    })
-
-    return NextResponse.json(answer, { status: 201 })
+    await prisma.answer.delete({ where: { id } })
+    return NextResponse.json({ success: true })
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to create answer' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete' }, { status: 500 })
   }
 }

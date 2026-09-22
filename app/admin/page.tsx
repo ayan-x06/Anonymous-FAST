@@ -53,10 +53,12 @@ export default function AdminDashboard() {
   const fetchAllAdminData = async () => {
     setLoading(true)
     try {
+      // ADDED /admin/ TO THESE URLS
       const [qRes, rRes] = await Promise.all([
-        fetch('/api/questions'),
-        fetch('/api/reviews'),
+        fetch('/api/admin/questions'),
+        fetch('/api/admin/reviews'),
       ])
+      // ... rest of the code remains the same
       
       if (qRes.ok) {
         const qData = await qRes.json()
@@ -73,13 +75,15 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleDelete = async (endpoint: string, id: string) => {
+ const handleDelete = async (endpoint: string, id: string) => {
     if (!confirm(`Are you sure you want to remove this item?`)) return
 
     try {
-      const res = await fetch(`/api/${endpoint}?id=${id}`, {
+      // ADDED /admin/ TO THIS URL
+      const res = await fetch(`/api/admin/${endpoint}?id=${id}`, {
         method: 'DELETE',
       })
+      // ... rest of the code remains the same
 
       if (res.ok) {
         fetchAllAdminData()
