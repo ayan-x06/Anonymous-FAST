@@ -18,7 +18,7 @@ const ipRequestMap = new Map<string, { count: number; lastReset: number }>()
 export async function GET() {
   try {
     const reviews = await prisma.teacherReview.findMany({
-      where: { isApproved: true },
+      where: { isApproved: true }, // Only show approved reviews publicly
       orderBy: { createdAt: 'desc' },
     })
     return NextResponse.json(reviews, { status: 200 })
@@ -27,7 +27,7 @@ export async function GET() {
   }
 }
 
-// POST: Submit a new teacher review with immediate AI blocking
+// POST: Submit a new teacher review with hybrid moderation routing
 export async function POST(request: Request) {
   try {
     // 1. Basic Rate Limiting Defense against spam/script floods
@@ -62,18 +62,11 @@ export async function POST(request: Request) {
     const normalizedTeacher = teacherName.trim()
     const normalizedText = reviewText.trim()
 
-    // 2. Hybrid Moderation Check (Immediately blocks toxic/flagged content)
+    // 2. Hybrid Moderation Check (Routes flagged items to admin queue)
     const evaluation = await evaluateSubmission(normalizedText)
-
-    if (evaluation.status === 'PENDING_REVIEW') {
-      return NextResponse.json(
-        { error: `Review blocked: ${evaluation.reason || 'Contains prohibited or toxic language.'}` },
-        { status: 403 }
-      )
-    }
+    const isApproved = evaluation.status === 'APPROVED' // False if flagged by AI or blacklist
 
     // 3. Duplicate Review Protection
-    // Prevents identical text submissions for the same professor to protect the database
     const existingDuplicate = await prisma.teacherReview.findFirst({
       where: {
         teacherName: { equals: normalizedTeacher, mode: 'insensitive' },
@@ -88,7 +81,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // 4. Create Review in Database (Approved instantly since it passed moderation)
+    // 4. Create Review in Database with dynamic approval routing
     const newReview = await prisma.teacherReview.create({
       data: {
         teacherName: normalizedTeacher,
@@ -96,13 +89,13 @@ export async function POST(request: Request) {
         rating,
         reviewText: normalizedText,
         gradingEase,
-        isApproved: true, // Automatically live since blocked content never reaches this line
+        isApproved, // True goes live instantly; False routes straight to /admin queue
       },
     })
 
     return NextResponse.json(
       { 
-        message: 'Review published successfully!', 
+        message: isApproved ? 'Review published successfully!' : 'Review submitted for admin review.', 
         status: evaluation.status,
         newReview 
       },
