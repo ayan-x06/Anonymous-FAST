@@ -1,88 +1,47 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { evaluateSubmission } from '@/lib/moderation'
-import { z } from 'zod'
 
-const questionSchema = z.object({
-  title: z.string().min(3, 'Title must be at least 3 characters long').max(150),
-  content: z.string().min(5, 'Content must be at least 5 characters long').max(2000),
-  tags: z.string().optional(),
-})
-
-// Simple in-memory rate limiter map (IP -> { count, lastReset })
-const ipRequestMap = new Map<string, { count: number; lastReset: number }>()
-
-// GET: Fetch all active, approved questions
+// GET: Fetch all unapproved/pending questions for the admin queue
 export async function GET() {
   try {
     const questions = await prisma.question.findMany({
-      where: { isApproved: true }, // Only show approved questions publicly
+      where: { isApproved: false },
       orderBy: { createdAt: 'desc' },
-      include: { answers: true },
     })
     return NextResponse.json(questions, { status: 200 })
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch questions' }, { status: 500 })
+    console.error('Failed to fetch pending questions:', error)
+    return NextResponse.json({ error: 'Failed to fetch pending questions' }, { status: 500 })
   }
 }
 
-// POST: Submit a new question with hybrid AI moderation routing
+// POST: Approve or Delete a question from the admin panel
 export async function POST(request: Request) {
   try {
-    // 1. Basic Rate Limiting Defense against spam/script floods
-    const forwardedFor = request.headers.get('x-forwarded-for')
-    const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
-    const now = Date.now()
-    const windowMs = 60 * 1000 // 1 minute window
-    const maxRequests = 5 // Max 5 requests per minute per IP
+    const { id, action } = await request.json()
 
-    let record = ipRequestMap.get(ip)
-    if (!record || now - record.lastReset > windowMs) {
-      record = { count: 1, lastReset: now }
-      ipRequestMap.set(ip, record)
-    } else {
-      record.count++
-      if (record.count > maxRequests) {
-        return NextResponse.json(
-          { error: 'Rate limit exceeded. Please wait a minute before submitting again.' },
-          { status: 429 }
-        )
-      }
+    if (!id || !action) {
+      return NextResponse.json({ error: 'Missing question id or action' }, { status: 400 })
     }
 
-    const body = await request.json()
-    const validation = questionSchema.safeParse(body)
-
-    if (!validation.success) {
-      return NextResponse.json({ error: validation.error.format() }, { status: 400 })
+    if (action === 'approve') {
+      const updated = await prisma.question.update({
+        where: { id },
+        data: { isApproved: true },
+      })
+      return NextResponse.json({ success: true, updated }, { status: 200 })
+    } 
+    
+    if (action === 'delete') {
+      await prisma.question.delete({
+        where: { id },
+      })
+      return NextResponse.json({ success: true }, { status: 200 })
     }
 
-    const { title, content, tags } = validation.data
-
-    // 2. Hybrid Moderation Check (Local Regex + Strict Gemini AI)
-    const evaluation = await evaluateSubmission(`${title} ${content}`)
-    const isApproved = evaluation.status === 'APPROVED' // False if flagged, routing to admin queue
-
-    // 3. Create Question in Database with dynamic approval routing
-    const newQuestion = await prisma.question.create({
-      data: {
-        title,
-        content,
-        tags: tags || 'general',
-        isApproved, // True goes live instantly; False routes straight to /admin queue
-      },
-    })
-
-    return NextResponse.json(
-      {
-        question: newQuestion,
-        status: evaluation.status,
-        message: isApproved ? 'Published successfully!' : 'Submitted successfully! Pending admin approval.',
-      },
-      { status: 201 }
-    )
+    return NextResponse.json({ error: 'Invalid action specified' }, { status: 400 })
   } catch (error) {
-    console.error('Question submission error:', error)
+    console.error('Admin question action error:', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }

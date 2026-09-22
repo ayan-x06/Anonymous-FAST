@@ -1,108 +1,47 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { evaluateSubmission } from '@/lib/moderation'
-import { z } from 'zod'
 
-const reviewSchema = z.object({
-  teacherName: z.string().min(2, 'Teacher name is required').max(100),
-  courseCode: z.string().min(3, 'Course code is required').max(20),
-  rating: z.number().int().min(1).max(5),
-  reviewText: z.string().min(10, 'Review must be at least 10 characters long').max(1000),
-  gradingEase: z.number().int().min(1).max(5),
-})
-
-// Simple in-memory rate limiter map (IP -> { count, lastReset })
-const ipRequestMap = new Map<string, { count: number; lastReset: number }>()
-
-// GET: Fetch all active, approved teacher reviews
+// GET: Fetch all unapproved/pending teacher reviews for the admin queue
 export async function GET() {
   try {
     const reviews = await prisma.teacherReview.findMany({
-      where: { isApproved: true }, // Only show approved reviews publicly
+      where: { isApproved: false },
       orderBy: { createdAt: 'desc' },
     })
     return NextResponse.json(reviews, { status: 200 })
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch reviews' }, { status: 500 })
+    console.error('Failed to fetch pending reviews:', error)
+    return NextResponse.json({ error: 'Failed to fetch pending reviews' }, { status: 500 })
   }
 }
 
-// POST: Submit a new teacher review with hybrid moderation routing
+// POST: Approve or Delete a teacher review from the admin panel
 export async function POST(request: Request) {
   try {
-    // 1. Basic Rate Limiting Defense against spam/script floods
-    const forwardedFor = request.headers.get('x-forwarded-for')
-    const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
-    const now = Date.now()
-    const windowMs = 60 * 1000 // 1 minute window
-    const maxRequests = 5 // Max 5 reviews per minute per IP
+    const { id, action } = await request.json()
 
-    let record = ipRequestMap.get(ip)
-    if (!record || now - record.lastReset > windowMs) {
-      record = { count: 1, lastReset: now }
-      ipRequestMap.set(ip, record)
-    } else {
-      record.count++
-      if (record.count > maxRequests) {
-        return NextResponse.json(
-          { error: 'Rate limit exceeded. Please wait a minute before submitting again.' },
-          { status: 429 }
-        )
-      }
+    if (!id || !action) {
+      return NextResponse.json({ error: 'Missing review id or action' }, { status: 400 })
     }
 
-    const body = await request.json()
-    const validation = reviewSchema.safeParse(body)
-
-    if (!validation.success) {
-      return NextResponse.json({ error: validation.error.format() }, { status: 400 })
+    if (action === 'approve') {
+      const updated = await prisma.teacherReview.update({
+        where: { id },
+        data: { isApproved: true },
+      })
+      return NextResponse.json({ success: true, updated }, { status: 200 })
+    } 
+    
+    if (action === 'delete') {
+      await prisma.teacherReview.delete({
+        where: { id },
+      })
+      return NextResponse.json({ success: true }, { status: 200 })
     }
 
-    const { teacherName, courseCode, rating, reviewText, gradingEase } = validation.data
-    const normalizedTeacher = teacherName.trim()
-    const normalizedText = reviewText.trim()
-
-    // 2. Hybrid Moderation Check (Routes flagged items to admin queue)
-    const evaluation = await evaluateSubmission(normalizedText)
-    const isApproved = evaluation.status === 'APPROVED' // False if flagged by AI or blacklist
-
-    // 3. Duplicate Review Protection
-    const existingDuplicate = await prisma.teacherReview.findFirst({
-      where: {
-        teacherName: { equals: normalizedTeacher, mode: 'insensitive' },
-        reviewText: normalizedText,
-      },
-    })
-
-    if (existingDuplicate) {
-      return NextResponse.json(
-        { error: 'Duplicate review detected. This exact feedback has already been posted.' },
-        { status: 400 }
-      )
-    }
-
-    // 4. Create Review in Database with dynamic approval routing
-    const newReview = await prisma.teacherReview.create({
-      data: {
-        teacherName: normalizedTeacher,
-        courseCode: courseCode.toUpperCase().trim(),
-        rating,
-        reviewText: normalizedText,
-        gradingEase,
-        isApproved, // True goes live instantly; False routes straight to /admin queue
-      },
-    })
-
-    return NextResponse.json(
-      { 
-        message: isApproved ? 'Review published successfully!' : 'Review submitted for admin review.', 
-        status: evaluation.status,
-        newReview 
-      },
-      { status: 201 }
-    )
+    return NextResponse.json({ error: 'Invalid action specified' }, { status: 400 })
   } catch (error) {
-    console.error('Review submission error:', error)
+    console.error('Admin review action error:', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
