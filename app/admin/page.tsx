@@ -37,11 +37,10 @@ export default function AdminDashboard() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Clean up input by trimming spaces
     const enteredPass = passwordInput.trim()
     
-    // Set your working password right here (e.g., 'admin123')
-    const validPassword = 'admin123'
+    // Matches your ADMIN_SECRET from the .env file
+    const validPassword = 'pheonxzvanguard2007'
 
     if (enteredPass === validPassword) {
       setIsAuthenticated(true)
@@ -104,7 +103,7 @@ export default function AdminDashboard() {
 
           {authError && (
             <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600 text-center">
-              Incorrect password. Try: <span className="font-mono font-bold">admin123</span>
+              Incorrect password. Please try again.
             </div>
           )}
 
