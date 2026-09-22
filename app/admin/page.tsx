@@ -1,84 +1,205 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
+
+interface Question {
+  id: string
+  title: string
+  content: string
+  tags: string
+  status: string
+  createdAt: string
+}
+
+interface Answer {
+  id: string
+  content: string
+  questionId: string
+  createdAt: string
+}
+
+interface TeacherReview {
+  id: string
+  teacherName: string
+  courseCode: string
+  rating: number
+  gradingEase: number
+  reviewText: string
+  createdAt: string
+}
 
 export default function AdminDashboard() {
-  const [questions, setQuestions] = useState<any[]>([])
-  const [reviews, setReviews] = useState<any[]>([])
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [answers, setAnswers] = useState<Answer[]>([])
+  const [reviews, setReviews] = useState<TeacherReview[]>([])
   const [loading, setLoading] = useState(true)
 
-  const fetchData = async () => {
+  useEffect(() => {
+    fetchAllAdminData()
+  }, [])
+
+  const fetchAllAdminData = async () => {
     setLoading(true)
     try {
-      // Fetch all questions from admin route
-      const qRes = await fetch('/api/admin/questions')
-      const qData = await qRes.json()
-      if (qRes.ok) setQuestions(qData)
-
-      // Fetch pending reviews or answers
-      const rRes = await fetch('/api/admin/reviews')
-      const rData = await rRes.json()
-      if (rRes.ok) {
-        setReviews(rData.pendingAnswers || rData.reviews || [])
-      }
-    } catch (error) {
-      console.error('Error fetching admin data:', error)
+      // Fetching data from your respective admin or standard API routes
+      const [qRes, aRes, rRes] = await Promise.all([
+        fetch('/api/questions'),
+        fetch('/api/answers'),
+        fetch('/api/reviews'),
+      ])
+      
+      if (qRes.ok) setQuestions(await qRes.json())
+      if (aRes.ok) setAnswers(await aRes.json())
+      if (rRes.ok) setReviews(await rRes.json())
+    } catch (err) {
+      console.error('Failed to load admin data', err)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  // Generic delete handler
+  const handleDelete = async (type: 'questions' | 'answers' | 'reviews', id: string) => {
+    if (!confirm(`Are you sure you want to delete this ${type.slice(0, -1)}?`)) return
+
+    try {
+      const res = await fetch(`/api/${type}?id=${id}`, {
+        method: 'DELETE',
+      })
+
+      if (res.ok) {
+        fetchAllAdminData()
+      } else {
+        alert('Failed to delete item.')
+      }
+    } catch (err) {
+      console.error('Error deleting item', err)
+      alert('Network error while deleting.')
+    }
+  }
 
   return (
-    <main className="min-h-screen bg-[#FAFAFA] py-10 px-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Master Admin Control Panel</h1>
-          <button 
-            onClick={fetchData}
-            className="px-4 py-2 bg-gray-900 text-white text-xs rounded-xl font-medium"
+    <div className="min-h-screen bg-[#FAFAFA] text-[#0F172A] p-8 font-sans">
+      <div className="max-w-5xl mx-auto space-y-10">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Master Admin Control Panel</h1>
+            <p className="text-xs text-[#64748B] mt-1">Manage, moderate, or remove user-submitted content.</p>
+          </div>
+          <button
+            onClick={fetchAllAdminData}
+            className="px-4 py-2 bg-[#0F172A] text-white rounded-xl text-xs font-medium hover:bg-black transition-all"
           >
             Refresh All
           </button>
         </div>
 
-        {/* Questions Section */}
-        <section className="space-y-3">
-          <h2 className="text-lg font-bold text-blue-600">All Questions ({questions.length})</h2>
-          {questions.length === 0 ? (
-            <div className="p-4 bg-white rounded-xl border border-gray-200 text-xs text-gray-400">No questions found.</div>
-          ) : (
-            questions.map((q) => (
-              <div key={q.id} className="p-4 bg-white rounded-xl border border-gray-200 space-y-2">
-                <div className="flex justify-between">
-                  <h3 className="text-sm font-bold text-gray-900">{q.title}</h3>
-                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${q.isApproved ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {q.isApproved ? 'Approved' : 'Pending'}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-600">{q.content}</p>
+        {loading ? (
+          <div className="text-center py-20 text-sm text-[#64748B]">Loading admin dashboard...</div>
+        ) : (
+          <div className="space-y-12">
+            
+            {/* 1. QUESTIONS SECTION */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-[#0F172A]">Questions ({questions.length})</h2>
               </div>
-            ))
-          )}
-        </section>
 
-        {/* Reviews Section */}
-        <section className="space-y-3 pt-4">
-          <h2 className="text-lg font-bold text-blue-600">All Teacher Reviews / Answers ({reviews.length})</h2>
-          {reviews.length === 0 ? (
-            <div className="p-4 bg-white rounded-xl border border-gray-200 text-xs text-gray-400">No reviews found.</div>
-          ) : (
-            reviews.map((r) => (
-              <div key={r.id} className="p-4 bg-white rounded-xl border border-gray-200 space-y-2">
-                <p className="text-xs text-gray-600">{r.content}</p>
+              {questions.length === 0 ? (
+                <p className="text-xs text-[#64748B] italic">No questions found.</p>
+              ) : (
+                <div className="space-y-3">
+                  {questions.map((q) => (
+                    <div key={q.id} className="flex items-center justify-between bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-sm">
+                      <div>
+                        <h3 className="text-sm font-semibold text-[#0F172A]">{q.title}</h3>
+                        <p className="text-xs text-[#64748B] mt-1">{q.content}</p>
+                        <span className="inline-block mt-2 font-mono text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
+                          #{q.tags}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleDelete('questions', q.id)}
+                        className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-medium transition-all"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 2. ANSWERS SECTION */}
+            <div className="space-y-4 pt-6 border-t border-[#E2E8F0]">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-[#0F172A]">Answers ({answers.length})</h2>
               </div>
-            ))
-          )}
-        </section>
+
+              {answers.length === 0 ? (
+                <p className="text-xs text-[#64748B] italic">No answers found.</p>
+              ) : (
+                <div className="space-y-3">
+                  {answers.map((a) => (
+                    <div key={a.id} className="flex items-center justify-between bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-sm">
+                      <div>
+                        <p className="text-sm text-[#0F172A]">{a.content}</p>
+                        <span className="block mt-1 font-mono text-[10px] text-[#64748B]">
+                          Question ID: {a.questionId}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleDelete('answers', a.id)}
+                        className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-medium transition-all"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 3. TEACHER REVIEWS SECTION */}
+            <div className="space-y-4 pt-6 border-t border-[#E2E8F0]">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-[#0F172A]">Teacher Reviews ({reviews.length})</h2>
+              </div>
+
+              {reviews.length === 0 ? (
+                <p className="text-xs text-[#64748B] italic">No teacher reviews found.</p>
+              ) : (
+                <div className="space-y-3">
+                  {reviews.map((r) => (
+                    <div key={r.id} className="flex items-center justify-between bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-sm">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-sm text-[#0F172A]">{r.teacherName}</span>
+                          <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">{r.courseCode}</span>
+                        </div>
+                        <p className="text-xs text-[#64748B]">{r.reviewText}</p>
+                        <div className="mt-2 flex gap-3 text-[10px] font-mono text-emerald-700">
+                          <span>Rating: {r.rating}/5</span>
+                          <span>Grading Ease: {r.gradingEase}/5</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleDelete('reviews', r.id)}
+                        className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-medium transition-all"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
       </div>
-    </main>
+    </div>
   )
 }
