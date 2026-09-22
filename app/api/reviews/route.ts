@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { containsProfanity } from '@/lib/moderation'
+import { evaluateSubmission } from '@/lib/moderation'
 import { z } from 'zod'
 
 const reviewSchema = z.object({
@@ -14,7 +14,6 @@ const reviewSchema = z.object({
 // Simple in-memory rate limiter map (IP -> { count, lastReset })
 const ipRequestMap = new Map<string, { count: number; lastReset: number }>()
 
-// GET: Fetch all teacher reviews
 // GET: Fetch all active, approved teacher reviews
 export async function GET() {
   try {
@@ -28,7 +27,7 @@ export async function GET() {
   }
 }
 
-// POST: Submit a new moderated teacher review
+// POST: Submit a new teacher review with hybrid moderation routing
 export async function POST(request: Request) {
   try {
     // 1. Basic Rate Limiting Defense against spam/script floods
@@ -63,15 +62,9 @@ export async function POST(request: Request) {
     const normalizedTeacher = teacherName.trim()
     const normalizedText = reviewText.trim()
 
-    // 2. Profanity Moderation Check
-    const isFlagged = containsProfanity(normalizedText)
-
-    if (isFlagged) {
-      return NextResponse.json(
-        { error: 'Review rejected: Contains prohibited language or toxic phrasing.' },
-        { status: 403 }
-      )
-    }
+    // 2. Hybrid Moderation Check (Routes flagged items to admin queue instead of 403 blocking)
+    const evaluation = evaluateSubmission(normalizedText)
+    const isApproved = evaluation.status === 'APPROVED'
 
     // 3. Duplicate Review Protection
     // Prevents identical text submissions for the same professor to protect the database
@@ -88,7 +81,8 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
-    // 4. Create Review in Database (Pending Moderation)
+
+    // 4. Create Review in Database with dynamic approval routing
     const newReview = await prisma.teacherReview.create({
       data: {
         teacherName: normalizedTeacher,
@@ -96,16 +90,18 @@ export async function POST(request: Request) {
         rating,
         reviewText: normalizedText,
         gradingEase,
-        isApproved: false, // Holds the review in the queue until you approve it in /admin
+        isApproved, // True goes live instantly; False routes straight to /admin queue
       },
     })
 
     return NextResponse.json(
-      { message: 'Review submitted successfully! Pending admin approval.', newReview },
+      { 
+        message: isApproved ? 'Review published successfully!' : 'Review submitted for admin review.', 
+        status: evaluation.status,
+        newReview 
+      },
       { status: 201 }
     )
-
-    return NextResponse.json(newReview, { status: 201 })
   } catch (error) {
     console.error('Review submission error:', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
