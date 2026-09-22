@@ -1,43 +1,38 @@
+datasource db {
+  provider = "sqlite" // Or "postgresql" depending on your configuration
+  url      = env("DATABASE_URL")
+}
+
 generator client {
   provider = "prisma-client-js"
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-// Table 1: Anonymous Q&A Posts
 model Question {
-  id         String   @id @default(cuid())
+  id         String   @id @default(uuid())
   title      String
   content    String
   tags       String   @default("general")
-  isApproved Boolean  @default(false)  // <--- Ensure this is saved here
+  isApproved Boolean  @default(false)
   createdAt  DateTime @default(now())
   answers    Answer[]
 }
 
-// Table 2: Answers to Q&A Posts
 model Answer {
   id         String   @id @default(uuid())
-  content    String   // The response text
-  questionId String   // Links back to the parent Question
+  content    String
+  isApproved Boolean  @default(false)
+  questionId String
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
 }
 
-// Table 3: Teacher Reviews (FAST-NUCES Faculty Hub)
 model TeacherReview {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   teacherName String
   courseCode  String
   rating      Int
   gradingEase Int
   reviewText  String
-  isApproved  Boolean  @default(false) // <--- Add this line here!
+  isApproved  Boolean  @default(false)
   createdAt   DateTime @default(now())
 }
-
-
-

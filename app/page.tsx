@@ -3,12 +3,19 @@
 import React, { useState, useEffect } from 'react'
 import { FACULTY_DEPARTMENTS } from '@/lib/facultyData'
 
+interface Answer {
+  id: string
+  content: string
+  createdAt: string
+}
+
 interface Question {
   id: string
   title: string
   content: string
   tags: string
   createdAt: string
+  answers?: Answer[]
   _count?: { answers: number }
 }
 
@@ -37,6 +44,10 @@ export default function Home() {
   const [qSubmitting, setQSubmitting] = useState(false)
   const [qError, setQError] = useState('')
   const [qSuccess, setQSuccess] = useState('')
+
+  // Answer Input States (mapped by question ID)
+  const [answerInputs, setAnswerInputs] = useState<{ [key: string]: string }>({})
+  const [submittingAnswerId, setSubmittingAnswerId] = useState<string | null>(null)
 
   // Review Form States
   const [rTeacher, setRTeacher] = useState('')
@@ -100,6 +111,34 @@ export default function Home() {
       setQError('Network error. Please try again.')
     } finally {
       setQSubmitting(false)
+    }
+  }
+
+  // Handle Answer Submission
+  const handleAnswerSubmit = async (e: React.FormEvent, questionId: string) => {
+    e.preventDefault()
+    const content = answerInputs[questionId]
+    if (!content || !content.trim()) return
+
+    setSubmittingAnswerId(questionId)
+    try {
+      const res = await fetch('/api/answers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questionId, content }),
+      })
+      const data = await res.json()
+
+      if (res.ok) {
+        setAnswerInputs(prev => ({ ...prev, [questionId]: '' }))
+        fetchData() // Refresh feed to see the newly approved/posted answer
+      } else {
+        alert(data.error?.message || data.error || 'Failed to post answer.')
+      }
+    } catch (err) {
+      console.error('Network error posting answer', err)
+    } finally {
+      setSubmittingAnswerId(null)
     }
   }
 
@@ -328,9 +367,47 @@ export default function Home() {
                     </div>
                     <h4 className="text-lg font-semibold text-[#0F172A]">{q.title}</h4>
                     <p className="mt-2 text-sm text-[#64748B] leading-relaxed">{q.content}</p>
+                    
+                    {/* Answers Section */}
+                    <div className="mt-6 pt-4 border-t border-[#E2E8F0] space-y-3">
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-[#64748B]">
+                        Answers ({q.answers?.length || q._count?.answers || 0})
+                      </h5>
+
+                      {q.answers && q.answers.length > 0 && (
+                        <div className="space-y-2">
+                          {q.answers.map((ans) => (
+                            <div key={ans.id} className="bg-[#FAFAFA] border border-[#E2E8F0] p-3 rounded-xl text-sm text-[#0F172A]">
+                              <p>{ans.content}</p>
+                              <span className="text-[10px] text-[#64748B] mt-1 block">
+                                {new Date(ans.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Post Answer Form */}
+                      <form onSubmit={(e) => handleAnswerSubmit(e, q.id)} className="flex gap-2 pt-2">
+                        <input
+                          type="text"
+                          placeholder="Write an anonymous answer..."
+                          value={answerInputs[q.id] || ''}
+                          onChange={(e) => setAnswerInputs({ ...answerInputs, [q.id]: e.target.value })}
+                          className="flex-1 h-10 rounded-xl border border-[#E2E8F0] px-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#0052FF] bg-[#FAFAFA]"
+                        />
+                        <button
+                          type="submit"
+                          disabled={submittingAnswerId === q.id}
+                          className="h-10 px-4 rounded-xl bg-[#0052FF] text-white text-xs font-medium hover:bg-[#0052FF]/90 transition-all disabled:opacity-50"
+                        >
+                          {submittingAnswerId === q.id ? 'Posting...' : 'Answer'}
+                        </button>
+                      </form>
+                    </div>
+
                     <div className="mt-4 flex items-center justify-between pt-4 border-t border-[#E2E8F0] text-xs text-[#64748B]">
                       <span>Anonymous Student</span>
-                      <span className="font-medium text-[#0F172A]">{q._count?.answers || 0} Answers</span>
                     </div>
                   </div>
                 ))
