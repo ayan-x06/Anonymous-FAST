@@ -56,7 +56,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // Handle Approve / Unapprove toggle
   const handleAction = async (type: 'questions' | 'answers' | 'reviews', id: string, action: 'approve' | 'unapprove') => {
     const isApproved = action === 'approve'
     try {
@@ -66,7 +65,7 @@ export default function AdminDashboard() {
         body: JSON.stringify({ type, id, isApproved }),
       })
       if (res.ok) {
-        fetchAdminData() // Refresh list
+        fetchAdminData()
       } else {
         alert('Failed to update status')
       }
@@ -75,7 +74,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // Handle Delete
   const handleDelete = async (type: 'questions' | 'answers' | 'reviews', id: string) => {
     if (!confirm('Are you sure you want to delete this item?')) return
 
@@ -84,7 +82,7 @@ export default function AdminDashboard() {
         method: 'DELETE',
       })
       if (res.ok) {
-        fetchAdminData() // Refresh list
+        fetchAdminData()
       } else {
         alert('Failed to delete item')
       }
@@ -100,7 +98,7 @@ export default function AdminDashboard() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Admin Control Panel</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Master Admin Control Panel</h1>
             <p className="text-sm text-[#64748B]">Moderate questions, answers, and teacher reviews submitted anonymously.</p>
           </div>
           <div className="flex items-center gap-3">
@@ -126,7 +124,6 @@ export default function AdminDashboard() {
         {loading ? (
           <div className="py-20 text-center text-sm text-[#64748B]">Loading admin dashboard data...</div>
         ) : activeTab === 'questions' ? (
-          /* QUESTIONS & ANSWERS TAB */
           <div className="space-y-6">
             {questions.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-[#E2E8F0] p-12 text-center text-sm text-[#64748B]">
@@ -148,21 +145,21 @@ export default function AdminDashboard() {
                       {q.isApproved ? (
                         <button
                           onClick={() => handleAction('questions', q.id, 'unapprove')}
-                          className="px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-xs font-medium hover:bg-amber-100"
+                          className="px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-xs font-medium"
                         >
                           Unapprove
                         </button>
                       ) : (
                         <button
                           onClick={() => handleAction('questions', q.id, 'approve')}
-                          className="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-medium hover:bg-emerald-100"
+                          className="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-medium"
                         >
                           Approve
                         </button>
                       )}
                       <button
                         onClick={() => handleDelete('questions', q.id)}
-                        className="px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100"
+                        className="px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 text-red-600 text-xs font-medium"
                       >
                         Delete
                       </button>
@@ -176,8 +173,8 @@ export default function AdminDashboard() {
 
                   {/* Answers Sub-list */}
                   <div className="mt-4 pl-4 border-l-2 border-[#E2E8F0] space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#64748B]">Answers ({q.answers.length})</h4>
-                    {q.answers.map((ans) => (
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#64748B]">Answers ({q.answers?.length || 0})</h4>
+                    {q.answers?.map((ans) => (
                       <div key={ans.id} className="flex items-center justify-between bg-[#FAFAFA] border border-[#E2E8F0] p-3 rounded-xl text-sm">
                         <div>
                           <p>{ans.content}</p>
@@ -187,26 +184,11 @@ export default function AdminDashboard() {
                         </div>
                         <div className="flex items-center gap-2">
                           {ans.isApproved ? (
-                            <button
-                              onClick={() => handleAction('answers', ans.id, 'unapprove')}
-                              className="text-xs text-amber-700 underline"
-                            >
-                              Unapprove
-                            </button>
+                            <button onClick={() => handleAction('answers', ans.id, 'unapprove')} className="text-xs text-amber-700 underline">Unapprove</button>
                           ) : (
-                            <button
-                              onClick={() => handleAction('answers', ans.id, 'approve')}
-                              className="text-xs text-emerald-700 underline"
-                            >
-                              Approve
-                            </button>
+                            <button onClick={() => handleAction('answers', ans.id, 'approve')} className="text-xs text-emerald-700 underline">Approve</button>
                           )}
-                          <button
-                            onClick={() => handleDelete('answers', ans.id)}
-                            className="text-xs text-red-600 underline"
-                          >
-                            Delete
-                          </button>
+                          <button onClick={() => handleDelete('answers', ans.id)} className="text-xs text-red-600 underline">Delete</button>
                         </div>
                       </div>
                     ))}
@@ -216,7 +198,6 @@ export default function AdminDashboard() {
             )}
           </div>
         ) : (
-          /* TEACHER REVIEWS TAB */
           <div className="space-y-4">
             {reviews.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-[#E2E8F0] p-12 text-center text-sm text-[#64748B]">
@@ -241,26 +222,11 @@ export default function AdminDashboard() {
 
                   <div className="flex items-center gap-2 shrink-0">
                     {rev.isApproved ? (
-                      <button
-                        onClick={() => handleAction('reviews', rev.id, 'unapprove')}
-                        className="px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-xs font-medium hover:bg-amber-100"
-                      >
-                        Unapprove
-                      </button>
+                      <button onClick={() => handleAction('reviews', rev.id, 'unapprove')} className="px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-xs font-medium">Unapprove</button>
                     ) : (
-                      <button
-                        onClick={() => handleAction('reviews', rev.id, 'approve')}
-                        className="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-medium hover:bg-emerald-100"
-                      >
-                        Approve
-                      </button>
+                      <button onClick={() => handleAction('reviews', rev.id, 'approve')} className="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-medium">Approve</button>
                     )}
-                    <button
-                      onClick={() => handleDelete('reviews', rev.id)}
-                      className="px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100"
-                    >
-                      Delete
-                    </button>
+                    <button onClick={() => handleDelete('reviews', rev.id)} className="px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 text-red-600 text-xs font-medium">Delete</button>
                   </div>
                 </div>
               ))
