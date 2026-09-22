@@ -17,7 +17,7 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
       include: { 
         answers: {
-          where: { isApproved: true }, // Only show approved answers publicly
+          where: { isApproved: true }, 
           orderBy: { createdAt: 'asc' }
         } 
       },
