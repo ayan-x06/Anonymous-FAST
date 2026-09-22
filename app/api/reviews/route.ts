@@ -18,7 +18,10 @@ export async function GET() {
       where: { isApproved: true },
       orderBy: { createdAt: 'desc' },
     })
-    return NextResponse.json(reviews, { status: 200 })
+    return NextResponse.json(reviews, { 
+      status: 200,
+      headers: { 'Cache-Control': 'no-store, max-age=0' }
+    })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch reviews' }, { status: 500 })
   }
@@ -37,9 +40,10 @@ export async function POST(request: Request) {
     const { teacherName, courseCode, rating, reviewText, gradingEase } = validation.data
     const normalizedTeacher = teacherName.trim()
     const normalizedText = reviewText.trim()
+    const normalizedCourse = courseCode.toUpperCase().trim()
 
-    // Moderation Check
-    const evaluation = await evaluateSubmission(normalizedText)
+    // Moderation Check across teacher name, course code, and review text
+    const evaluation = await evaluateSubmission(normalizedTeacher, normalizedCourse, normalizedText)
     const isApproved = evaluation.status === 'APPROVED'
 
     // Duplicate Protection
@@ -60,7 +64,7 @@ export async function POST(request: Request) {
     const newReview = await prisma.teacherReview.create({
       data: {
         teacherName: normalizedTeacher,
-        courseCode: courseCode.toUpperCase().trim(),
+        courseCode: normalizedCourse,
         rating,
         reviewText: normalizedText,
         gradingEase,

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { evaluateSubmission } from '@/lib/moderation'
 
 export async function POST(request: Request) {
   try {
@@ -12,6 +13,15 @@ export async function POST(request: Request) {
 
     if (!content || !questionId) {
       return NextResponse.json({ error: 'Missing content or questionId', received: body }, { status: 400 })
+    }
+
+    // Hybrid Moderation Check (Local blacklist/leetspeak + AI safety)
+    const evaluation = await evaluateSubmission(content)
+    if (evaluation.status === 'PENDING_REVIEW') {
+      return NextResponse.json(
+        { error: evaluation.reason || 'Your answer contains prohibited or abusive words. Please keep it clean.' },
+        { status: 400 }
+      )
     }
 
     const newAnswer = await prisma.answer.create({

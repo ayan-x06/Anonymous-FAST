@@ -17,12 +17,14 @@ export async function GET() {
         answers: true, // Required to fetch nested answers
       },
       orderBy: { createdAt: 'desc' },
-    })
+      headers: { 'Cache-Control': 'no-store, max-age=0' },
+    } as any)
     return NextResponse.json(questions)
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 })
   }
 }
+
 // POST: Submit a new question from the public frontend form
 export async function POST(request: Request) {
   try {
@@ -35,8 +37,8 @@ export async function POST(request: Request) {
 
     const { title, content, tags } = validation.data
 
-    // Hybrid Moderation Check
-    const evaluation = await evaluateSubmission(`${title} ${content}`)
+    // Hybrid Moderation Check passing individual fields
+    const evaluation = await evaluateSubmission(title, content, tags)
     const isApproved = evaluation.status === 'APPROVED'
 
     const newQuestion = await prisma.question.create({
