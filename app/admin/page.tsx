@@ -20,7 +20,6 @@ interface TeacherReview {
 }
 
 export default function AdminDashboard() {
-  // Password Protection State
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
   const [authError, setAuthError] = useState(false)
@@ -37,8 +36,14 @@ export default function AdminDashboard() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    // Change 'admin123' to whatever password you want to use
-    if (passwordInput === 'admin123') {
+    
+    // Clean up input by trimming spaces
+    const enteredPass = passwordInput.trim()
+    
+    // Set your working password right here (e.g., 'admin123')
+    const validPassword = 'admin123'
+
+    if (enteredPass === validPassword) {
       setIsAuthenticated(true)
       setAuthError(false)
     } else {
@@ -69,12 +74,10 @@ export default function AdminDashboard() {
     }
   }
 
-  // Delete Handler supporting Questions, Answers, and Reviews
   const handleDelete = async (endpoint: string, id: string) => {
     if (!confirm(`Are you sure you want to remove this item?`)) return
 
     try {
-      // Using query parameters or path depending on your backend setup
       const res = await fetch(`/api/${endpoint}?id=${id}`, {
         method: 'DELETE',
       })
@@ -90,7 +93,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // If not authenticated, show password prompt
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-6 font-sans">
@@ -102,7 +104,7 @@ export default function AdminDashboard() {
 
           {authError && (
             <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600 text-center">
-              Incorrect password. Please try again.
+              Incorrect password. Try: <span className="font-mono font-bold">admin123</span>
             </div>
           )}
 
@@ -127,14 +129,12 @@ export default function AdminDashboard() {
     )
   }
 
-  // Extract all answers nested inside questions for display & management
   const allAnswers = questions.flatMap(q => (q.answers || []).map(a => ({ ...a, questionTitle: q.title })))
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-[#0F172A] p-8 font-sans">
       <div className="max-w-5xl mx-auto space-y-10">
         
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Master Admin Control Panel</h1>
