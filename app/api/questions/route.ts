@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const { title, content, tags } = validation.data
 
     // Evaluate content using the hybrid moderation engine
-    const evaluation = evaluateSubmission(`${title} ${content}`)
+    const evaluation = await evaluateSubmission(`${title} ${content}`);
     const isApproved = evaluation.status === 'APPROVED'
 
     // Create the question with dynamic approval status

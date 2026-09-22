@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     const normalizedText = reviewText.trim()
 
     // 2. Hybrid Moderation Check (Routes flagged items to admin queue instead of 403 blocking)
-    const evaluation = evaluateSubmission(normalizedText)
+    const evaluation = await evaluateSubmission(normalizedText);
     const isApproved = evaluation.status === 'APPROVED'
 
     // 3. Duplicate Review Protection
