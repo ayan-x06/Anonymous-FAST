@@ -9,13 +9,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing content or question ID' }, { status: 400 })
     }
 
-    const newAnswer = await prisma.answer.create({
-      data: {
-        content,
-        questionId,
-        isApproved: false, // Goes to admin moderation first
-      },
-    })
+    // ANSWERS PUBLIC ROUTE.TS
+const newAnswer = await prisma.answer.create({
+  data: {
+    content,
+    questionId,
+    isApproved: true, // <--- Change this from false to true so it passes the public feed filter right away
+  },
+})
 
     return NextResponse.json({ success: true, answer: newAnswer }, { status: 201 })
   } catch (error) {
