@@ -337,13 +337,13 @@ export default function Home() {
                     <p className="mt-2 text-sm text-[#64748B] leading-relaxed">{q.content}</p>
                     
                     {/* Answers Section - Guaranteed Render */}
-                    <div className="mt-6 pt-4 border-t border-[#E2E8F0] space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h5 className="text-xs font-bold uppercase tracking-wider text-[#64748B]">
-                          Answers ({q.answers?.length || 0})
-                        </h5>
-                      </div>
-
+<div className="mt-6 pt-4 border-t border-[#E2E8F0] space-y-3">
+  <div className="flex items-center justify-between">
+    <h5 className="text-xs font-bold uppercase tracking-wider text-[#64748B]">
+      Answers ({q.answers?.length || 0})
+    </h5>
+  </div>
+  ...
                       {/* List existing answers if any */}
                       <div className="space-y-2">
                         {q.answers && q.answers.length > 0 ? (
