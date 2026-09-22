@@ -11,6 +11,7 @@ export async function GET() {
     })
     return NextResponse.json({ questions, reviews }, { status: 200 })
   } catch (error) {
+    console.error('Failed to fetch all admin data:', error)
     return NextResponse.json({ error: 'Failed to fetch data' }, { status: 500 })
   }
 }

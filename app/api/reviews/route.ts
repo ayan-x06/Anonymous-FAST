@@ -1,24 +1,24 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-// GET: Fetch all unapproved/pending teacher reviews for the admin queue
+// GET: Fetch all teacher reviews for the admin control panel
 export async function GET() {
   try {
     const reviews = await prisma.teacherReview.findMany({
-      where: { isApproved: false },
       orderBy: { createdAt: 'desc' },
     })
     return NextResponse.json(reviews, { status: 200 })
   } catch (error) {
-    console.error('Failed to fetch pending reviews:', error)
-    return NextResponse.json({ error: 'Failed to fetch pending reviews' }, { status: 500 })
+    console.error('Failed to fetch teacher reviews:', error)
+    return NextResponse.json({ error: 'Failed to fetch teacher reviews' }, { status: 500 })
   }
 }
 
-// POST: Approve or Delete a teacher review from the admin panel
+// POST: Handle approve, unapprove (hide), or delete actions from the admin panel
 export async function POST(request: Request) {
   try {
-    const { id, action } = await request.json()
+    const body = await request.json()
+    const { id, action } = body
 
     if (!id || !action) {
       return NextResponse.json({ error: 'Missing review id or action' }, { status: 400 })
@@ -32,6 +32,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, updated }, { status: 200 })
     } 
     
+    if (action === 'unapprove') {
+      const updated = await prisma.teacherReview.update({
+        where: { id },
+        data: { isApproved: false },
+      })
+      return NextResponse.json({ success: true, updated }, { status: 200 })
+    } 
+    
     if (action === 'delete') {
       await prisma.teacherReview.delete({
         where: { id },
@@ -41,7 +49,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: 'Invalid action specified' }, { status: 400 })
   } catch (error) {
-    console.error('Admin review action error:', error)
+    console.error('Admin teacher review action error:', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
