@@ -1,240 +1,188 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-
-interface Answer {
-  id: string
-  content: string
-  isApproved: boolean
-  createdAt: string
-}
+import { useState, useEffect } from 'react'
 
 interface Question {
   id: string
   title: string
   content: string
   tags: string
-  isApproved: boolean
   createdAt: string
-  answers: Answer[]
 }
 
-interface TeacherReview {
+interface Answer {
   id: string
-  teacherName: string
-  courseCode: string
-  rating: number
-  reviewText: string
-  gradingEase: number
-  isApproved: boolean
+  content: string
   createdAt: string
+  question?: {
+    title: string
+  }
 }
 
 export default function AdminDashboard() {
-  const [questions, setQuestions] = useState<Question[]>([])
-  const [reviews, setReviews] = useState<TeacherReview[]>([])
+  const [pendingQuestions, setPendingQuestions] = useState<Question[]>([])
+  const [pendingAnswers, setPendingAnswers] = useState<Answer[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'questions' | 'reviews'>('questions')
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchAdminData()
-  }, [])
-
-  const fetchAdminData = async () => {
-    setLoading(true)
+  // Fetch pending review items on load
+  const fetchPendingItems = async () => {
     try {
-      const res = await fetch('/api/admin/all')
+      const res = await fetch('/api/admin/reviews')
       const data = await res.json()
       if (res.ok) {
-        setQuestions(data.questions || [])
-        setReviews(data.reviews || [])
+        setPendingQuestions(data.pendingQuestions || [])
+        setPendingAnswers(data.pendingAnswers || [])
       }
-    } catch (err) {
-      console.error('Failed to load admin data', err)
+    } catch (error) {
+      console.error('Failed to load review queue', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleAction = async (type: 'questions' | 'answers' | 'reviews', id: string, action: 'approve' | 'unapprove') => {
-    const isApproved = action === 'approve'
+  useEffect(() => {
+    fetchPendingItems()
+  }, [])
+
+  // Handle Approve or Reject Action
+  const handleAction = async (id: string, type: 'question' | 'answer', action: 'approve' | 'reject') => {
+    setActionLoading(id)
     try {
-      const res = await fetch('/api/admin/all', {
+      const res = await fetch('/api/admin/reviews', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, id, isApproved }),
+        body: JSON.stringify({ id, type, action }),
       })
+
       if (res.ok) {
-        fetchAdminData()
+        // Remove item from state locally so UI updates instantly
+        if (type === 'question') {
+          setPendingQuestions(prev => prev.filter(q => q.id !== id))
+        } else {
+          setPendingAnswers(prev => prev.filter(a => a.id !== id))
+        }
       } else {
-        alert('Failed to update status')
+        alert('Action failed. Please try again.')
       }
-    } catch (err) {
-      console.error('Network error', err)
+    } catch (error) {
+      console.error('Error processing action:', error)
+    } finally {
+      setActionLoading(null)
     }
   }
 
-  const handleDelete = async (type: 'questions' | 'answers' | 'reviews', id: string) => {
-    if (!confirm('Are you sure you want to delete this item?')) return
-
-    try {
-      const res = await fetch(`/api/admin/all?type=${type}&id=${id}`, {
-        method: 'DELETE',
-      })
-      if (res.ok) {
-        fetchAdminData()
-      } else {
-        alert('Failed to delete item')
-      }
-    } catch (err) {
-      console.error('Network error', err)
-    }
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FAFAFA]">
+        <p className="text-sm font-medium text-gray-500">Loading admin moderation queue...</p>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-[#0F172A] p-6 lg:p-12 font-sans">
-      <div className="mx-auto max-w-6xl space-y-8">
+    <main className="min-h-screen bg-[#FAFAFA] py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto space-y-8">
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-6">
+        <div className="flex justify-between items-center border-b border-gray-200 pb-5">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Master Admin Control Panel</h1>
-            <p className="text-sm text-[#64748B]">Moderate questions, answers, and teacher reviews submitted anonymously.</p>
+            <h1 className="text-2xl font-bold text-gray-900">Admin Moderation Dashboard</h1>
+            <p className="text-xs text-gray-500 mt-1">Review and approve user-submitted questions and answers.</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setActiveTab('questions')}
-              className={`px-5 py-2.5 rounded-full text-xs font-medium transition-all ${
-                activeTab === 'questions' ? 'bg-[#0052FF] text-white shadow-sm' : 'bg-white border border-[#E2E8F0] text-[#64748B]'
-              }`}
-            >
-              Questions & Answers ({questions.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('reviews')}
-              className={`px-5 py-2.5 rounded-full text-xs font-medium transition-all ${
-                activeTab === 'reviews' ? 'bg-[#0052FF] text-white shadow-sm' : 'bg-white border border-[#E2E8F0] text-[#64748B]'
-              }`}
-            >
-              Teacher Reviews ({reviews.length})
-            </button>
+          <div className="flex gap-4">
+            <span className="px-3 py-1 bg-amber-50 text-amber-700 text-xs font-semibold rounded-full border border-amber-200">
+              Questions: {pendingQuestions.length}
+            </span>
+            <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full border border-blue-200">
+              Answers: {pendingAnswers.length}
+            </span>
           </div>
         </div>
 
-        {loading ? (
-          <div className="py-20 text-center text-sm text-[#64748B]">Loading admin dashboard data...</div>
-        ) : activeTab === 'questions' ? (
-          <div className="space-y-6">
-            {questions.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[#E2E8F0] p-12 text-center text-sm text-[#64748B]">
-                No questions submitted yet.
-              </div>
-            ) : (
-              questions.map((q) => (
-                <div key={q.id} className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono text-xs bg-[#0052FF]/10 text-[#0052FF] px-3 py-1 rounded-full">
-                        #{q.tags}
-                      </span>
-                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${q.isApproved ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                        {q.isApproved ? 'Approved' : 'Pending'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {q.isApproved ? (
-                        <button
-                          onClick={() => handleAction('questions', q.id, 'unapprove')}
-                          className="px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-xs font-medium"
-                        >
-                          Unapprove
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleAction('questions', q.id, 'approve')}
-                          className="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-medium"
-                        >
-                          Approve
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDelete('questions', q.id)}
-                        className="px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 text-red-600 text-xs font-medium"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-
+        {/* Pending Questions Section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-800">Pending Questions</h2>
+          {pendingQuestions.length === 0 ? (
+            <div className="p-6 bg-white rounded-2xl border border-gray-200 text-center text-xs text-gray-400">
+              No pending questions to review. 🎉
+            </div>
+          ) : (
+            pendingQuestions.map((q) => (
+              <div key={q.id} className="p-5 bg-white rounded-2xl border border-gray-200 shadow-sm space-y-3">
+                <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="text-lg font-semibold text-[#0F172A]">{q.title}</h3>
-                    <p className="text-sm text-[#64748B] mt-1">{q.content}</p>
+                    <span className="text-[10px] uppercase tracking-wider font-bold text-[#0052FF] bg-blue-50 px-2 py-0.5 rounded-md">
+                      {q.tags || 'general'}
+                    </span>
+                    <h3 className="text-sm font-bold text-gray-900 mt-1">{q.title}</h3>
                   </div>
-
-                  {/* Answers Sub-list */}
-                  <div className="mt-4 pl-4 border-l-2 border-[#E2E8F0] space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#64748B]">Answers ({q.answers?.length || 0})</h4>
-                    {q.answers?.map((ans) => (
-                      <div key={ans.id} className="flex items-center justify-between bg-[#FAFAFA] border border-[#E2E8F0] p-3 rounded-xl text-sm">
-                        <div>
-                          <p>{ans.content}</p>
-                          <span className={`inline-block mt-1 text-[10px] px-2 py-0.5 rounded font-medium ${ans.isApproved ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                            {ans.isApproved ? 'Approved' : 'Pending'}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {ans.isApproved ? (
-                            <button onClick={() => handleAction('answers', ans.id, 'unapprove')} className="text-xs text-amber-700 underline">Unapprove</button>
-                          ) : (
-                            <button onClick={() => handleAction('answers', ans.id, 'approve')} className="text-xs text-emerald-700 underline">Approve</button>
-                          )}
-                          <button onClick={() => handleDelete('answers', ans.id)} className="text-xs text-red-600 underline">Delete</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <span className="text-[10px] text-gray-400">{new Date(q.createdAt).toLocaleDateString()}</span>
                 </div>
-              ))
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {reviews.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[#E2E8F0] p-12 text-center text-sm text-[#64748B]">
-                No teacher reviews submitted yet.
+                <p className="text-xs text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-100">{q.content}</p>
+                
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => handleAction(q.id, 'question', 'reject')}
+                    disabled={actionLoading === q.id}
+                    className="px-4 py-2 rounded-xl border border-red-200 text-red-600 text-xs font-medium hover:bg-red-50 transition-all disabled:opacity-50"
+                  >
+                    Reject & Delete
+                  </button>
+                  <button
+                    onClick={() => handleAction(q.id, 'question', 'approve')}
+                    disabled={actionLoading === q.id}
+                    className="px-4 py-2 rounded-xl bg-[#0052FF] text-white text-xs font-medium hover:bg-[#0052FF]/90 transition-all disabled:opacity-50"
+                  >
+                    {actionLoading === q.id ? 'Processing...' : 'Approve'}
+                  </button>
+                </div>
               </div>
-            ) : (
-              reviews.map((rev) => (
-                <div key={rev.id} className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm flex items-start justify-between gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono text-xs bg-[#0052FF]/10 text-[#0052FF] px-3 py-1 rounded-full font-semibold">
-                        {rev.courseCode}
-                      </span>
-                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${rev.isApproved ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                        {rev.isApproved ? 'Approved' : 'Pending'}
-                      </span>
-                      <span className="text-xs text-[#64748B]">Rating: {rev.rating}/5 | Grading: {rev.gradingEase}/5</span>
-                    </div>
-                    <h3 className="text-lg font-semibold text-[#0F172A]">{rev.teacherName}</h3>
-                    <p className="text-sm text-[#64748B]">{rev.reviewText}</p>
-                  </div>
+            ))
+          )}
+        </section>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    {rev.isApproved ? (
-                      <button onClick={() => handleAction('reviews', rev.id, 'unapprove')} className="px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-xs font-medium">Unapprove</button>
-                    ) : (
-                      <button onClick={() => handleAction('reviews', rev.id, 'approve')} className="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-medium">Approve</button>
-                    )}
-                    <button onClick={() => handleDelete('reviews', rev.id)} className="px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 text-red-600 text-xs font-medium">Delete</button>
+        {/* Pending Answers Section */}
+        <section className="space-y-4 pt-4">
+          <h2 className="text-lg font-semibold text-gray-800">Pending Answers</h2>
+          {pendingAnswers.length === 0 ? (
+            <div className="p-6 bg-white rounded-2xl border border-gray-200 text-center text-xs text-gray-400">
+              No pending answers to review. 🎉
+            </div>
+          ) : (
+            pendingAnswers.map((a) => (
+              <div key={a.id} className="p-5 bg-white rounded-2xl border border-gray-200 shadow-sm space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[10px] font-medium text-gray-500">Replying to question:</span>
+                    <h4 className="text-xs font-bold text-gray-800">{a.question?.title || 'Unknown Question'}</h4>
                   </div>
+                  <span className="text-[10px] text-gray-400">{new Date(a.createdAt).toLocaleDateString()}</span>
                 </div>
-              ))
-            )}
-          </div>
-        )}
+                <p className="text-xs text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-100">{a.content}</p>
+                
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => handleAction(a.id, 'answer', 'reject')}
+                    disabled={actionLoading === a.id}
+                    className="px-4 py-2 rounded-xl border border-red-200 text-red-600 text-xs font-medium hover:bg-red-50 transition-all disabled:opacity-50"
+                  >
+                    Reject & Delete
+                  </button>
+                  <button
+                    onClick={() => handleAction(a.id, 'answer', 'approve')}
+                    disabled={actionLoading === a.id}
+                    className="px-4 py-2 rounded-xl bg-[#0052FF] text-white text-xs font-medium hover:bg-[#0052FF]/90 transition-all disabled:opacity-50"
+                  >
+                    {actionLoading === a.id ? 'Processing...' : 'Approve'}
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </section>
 
       </div>
-    </div>
+    </main>
   )
 }
