@@ -45,10 +45,6 @@ export default function Home() {
   const [qError, setQError] = useState('')
   const [qSuccess, setQSuccess] = useState('')
 
-  // Answer Input States (mapped by question ID)
-  const [answerInputs, setAnswerInputs] = useState<{ [key: string]: string }>({})
-  const [submittingAnswerId, setSubmittingAnswerId] = useState<string | null>(null)
-
   // Review Form States
   const [rTeacher, setRTeacher] = useState('')
   const [rCourse, setRCourse] = useState('')
@@ -111,34 +107,6 @@ export default function Home() {
       setQError('Network error. Please try again.')
     } finally {
       setQSubmitting(false)
-    }
-  }
-
-  // Handle Answer Submission
-  const handleAnswerSubmit = async (e: React.FormEvent, questionId: string) => {
-    e.preventDefault()
-    const content = answerInputs[questionId]
-    if (!content || !content.trim()) return
-
-    setSubmittingAnswerId(questionId)
-    try {
-      const res = await fetch('/api/answers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questionId, content }),
-      })
-      const data = await res.json()
-
-      if (res.ok) {
-        setAnswerInputs(prev => ({ ...prev, [questionId]: '' }))
-        fetchData() // Refresh feed to see the newly approved/posted answer
-      } else {
-        alert(data.error?.message || data.error || 'Failed to post answer.')
-      }
-    } catch (err) {
-      console.error('Network error posting answer', err)
-    } finally {
-      setSubmittingAnswerId(null)
     }
   }
 
@@ -359,7 +327,7 @@ export default function Home() {
                   <div key={q.id} className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm hover:shadow-md transition-all">
                     <div className="flex items-center justify-between mb-3">
                       <span className="inline-flex items-center rounded-full bg-[#0052FF]/10 px-3 py-1 font-mono text-xs text-[#0052FF]">
-                        #{q.tags}
+                        #{q.tags || 'general'}
                       </span>
                       <span className="text-xs text-[#64748B]">
                         {new Date(q.createdAt).toLocaleDateString()}
@@ -368,22 +336,27 @@ export default function Home() {
                     <h4 className="text-lg font-semibold text-[#0F172A]">{q.title}</h4>
                     <p className="mt-2 text-sm text-[#64748B] leading-relaxed">{q.content}</p>
                     
-                    {/* Answers Section */}
+                    {/* Answers Section - Guaranteed Render */}
                     <div className="mt-6 pt-4 border-t border-[#E2E8F0] space-y-3">
-                      <h5 className="text-xs font-bold uppercase tracking-wider text-[#64748B]">
-                        Answers ({q.answers?.length || q._count?.answers || 0})
-                      </h5>
+                      <div className="flex items-center justify-between">
+                        <h5 className="text-xs font-bold uppercase tracking-wider text-[#64748B]">
+                          Answers ({q.answers?.length || 0})
+                        </h5>
+                      </div>
 
-                      {/* List existing approved answers */}
-                      <div className="space-y-2 pt-3 border-t border-gray-100">
+                      {/* List existing answers if any */}
+                      <div className="space-y-2">
                         {q.answers && q.answers.length > 0 ? (
-                          q.answers.map((a: any) => (
-                            <div key={a.id} className="text-xs bg-gray-50 p-2.5 rounded-xl text-gray-700">
-                              {a.content}
+                          q.answers.map((a) => (
+                            <div key={a.id} className="text-xs bg-[#F8FAFC] border border-[#E2E8F0] p-3 rounded-xl text-[#0F172A]">
+                              <p>{a.content}</p>
+                              <span className="block mt-1 text-[10px] text-[#64748B]">
+                                {new Date(a.createdAt).toLocaleDateString()}
+                              </span>
                             </div>
                           ))
                         ) : (
-                          <p className="text-[11px] text-gray-400">0 Answers</p>
+                          <p className="text-xs text-[#64748B] italic">No answers yet. Be the first to reply!</p>
                         )}
 
                         {/* Answer Input Form */}
@@ -392,33 +365,40 @@ export default function Home() {
                             e.preventDefault()
                             const form = e.currentTarget
                             const input = form.elements.namedItem('answerContent') as HTMLInputElement
-                            if (!input.value.trim()) return
+                            if (!input || !input.value.trim()) return
 
-                            const res = await fetch('/api/answers', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ questionId: q.id, content: input.value })
-                            })
+                            try {
+                              const res = await fetch('/api/answers', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ questionId: q.id, content: input.value })
+                              })
+                              const data = await res.json()
 
-                            if (res.ok) {
-                              input.value = ''
-                              alert('Answer submitted for approval!')
-                              fetchData()
+                              if (res.ok) {
+                                input.value = ''
+                                alert('Answer submitted successfully!')
+                                fetchData()
+                              } else {
+                                alert(data.error?.message || data.error || 'Failed to submit answer.')
+                              }
+                            } catch (err) {
+                              alert('Network error posting answer.')
                             }
                           }}
-                          className="flex gap-2 pt-2"
+                          className="flex gap-2 pt-3"
                         >
                           <input
                             type="text"
                             name="answerContent"
                             placeholder="Write an anonymous answer..."
-                            className="flex-1 h-9 rounded-xl border border-gray-200 px-3 text-xs focus:outline-none bg-gray-50"
+                            className="flex-1 h-10 rounded-xl border border-[#E2E8F0] px-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#0052FF] bg-[#FAFAFA]"
                           />
                           <button
                             type="submit"
-                            className="h-9 px-4 rounded-xl bg-[#0052FF] text-white text-xs font-medium hover:bg-blue-700"
+                            className="h-10 px-4 rounded-xl bg-[#0052FF] text-white text-xs font-medium hover:bg-blue-750 transition-all"
                           >
-                            Answer
+                            Reply
                           </button>
                         </form>
                       </div>
