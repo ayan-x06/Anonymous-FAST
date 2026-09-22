@@ -101,7 +101,7 @@ export default function Home() {
       if (!res.ok) {
         setQError(data.error?.message || data.error || 'Submission failed. Check constraints or moderation guidelines.')
       } else {
-        setQSuccess('Submitted successfully! Pending admin approval.')
+        setQSuccess('Question Posted Sucessfully!')
         setQTitle('')
         setQContent('')
         setQTags('general')
@@ -169,7 +169,7 @@ export default function Home() {
       if (!res.ok) {
         setRError(data.error?.message || data.error || 'Review rejected by moderation or validation rules.')
       } else {
-        setRSuccess('Submitted successfully! Pending admin approval.')
+        setRSuccess('Review Submitted Successfully!')
         setRTeacher('')
         setRCourse('')
         setRText('')
