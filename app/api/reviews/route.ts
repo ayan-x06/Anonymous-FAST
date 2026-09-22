@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { evaluateSubmission } from '@/lib/moderation'
+import { evaluateSubmission, containsProfanity } from '@/lib/moderation'
 import { z } from 'zod'
 
 const reviewSchema = z.object({
@@ -42,7 +42,15 @@ export async function POST(request: Request) {
     const normalizedText = reviewText.trim()
     const normalizedCourse = courseCode.toUpperCase().trim()
 
-    // Moderation Check across teacher name, course code, and review text
+    // 1. Hard block if it contains blacklisted/abusive words
+    if (containsProfanity(normalizedTeacher, normalizedCourse, normalizedText)) {
+      return NextResponse.json(
+        { error: 'Your review contains prohibited or abusive words and cannot be posted.' },
+        { status: 400 }
+      )
+    }
+
+    // 2. AI Safety Moderation Check
     const evaluation = await evaluateSubmission(normalizedTeacher, normalizedCourse, normalizedText)
     const isApproved = evaluation.status === 'APPROVED'
 

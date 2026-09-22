@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { evaluateSubmission } from '@/lib/moderation'
+import { evaluateSubmission, containsProfanity } from '@/lib/moderation'
 
 export async function POST(request: Request) {
   try {
@@ -15,7 +15,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing content or questionId', received: body }, { status: 400 })
     }
 
-    // Hybrid Moderation Check (Local blacklist/leetspeak + AI safety)
+    // 1. Hard block if it contains blacklisted/abusive words
+    if (containsProfanity(content)) {
+      return NextResponse.json(
+        { error: 'Your answer contains prohibited or abusive words and cannot be posted.' },
+        { status: 400 }
+      )
+    }
+
+    // 2. AI Safety Moderation Check
     const evaluation = await evaluateSubmission(content)
     if (evaluation.status === 'PENDING_REVIEW') {
       return NextResponse.json(
