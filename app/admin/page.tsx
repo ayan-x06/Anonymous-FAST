@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 interface Question {
   id: string
   title: string
   content: string
   tags: string
+  isApproved: boolean
   createdAt: string
 }
 
@@ -16,51 +17,51 @@ interface Review {
   courseCode: string
   rating: number
   reviewText: string
+  isApproved: boolean
   createdAt: string
 }
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState('')
-  const [pendingQuestions, setPendingQuestions] = useState<Question[]>([])
-  const [pendingReviews, setPendingReviews] = useState<Review[]>([])
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(false)
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    // Matches your password setup
     if (password === 'pheonxzvanguard2007') {
       setIsAuthenticated(true)
-      fetchPendingData()
+      fetchAllData()
     } else {
       alert('Incorrect admin password!')
     }
   }
 
-  const fetchPendingData = async () => {
+  const fetchAllData = async () => {
     setLoading(true)
     try {
+      // Let's fetch ALL items so you can see and delete public or pending ones
       const [qRes, rRes] = await Promise.all([
-        fetch('/api/admin/questions'),
-        fetch('/api/admin/reviews')
+        fetch('/api/admin/questions-all'), // Or we can adjust your API route to return all
+        fetch('/api/admin/reviews-all')
       ])
-
-      if (qRes.ok) {
-        const qData = await qRes.json()
-        setPendingQuestions(qData)
-      }
-      if (rRes.ok) {
-        const rData = await rRes.json()
-        setPendingReviews(rData)
+      
+      // Alternatively, let's create a single admin endpoint that returns everything easily
+      const res = await fetch('/api/admin/all')
+      if (res.ok) {
+        const data = await res.json()
+        setQuestions(data.questions)
+        setReviews(data.reviews)
       }
     } catch (error) {
-      console.error('Failed to fetch pending admin data:', error)
+      console.error('Failed to fetch admin data:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleAction = async (type: 'questions' | 'reviews', id: string, action: 'approve' | 'delete') => {
+  const handleAction = async (type: 'questions' | 'reviews', id: string, action: 'approve' | 'unapprove' | 'delete') => {
     try {
       const res = await fetch(`/api/admin/${type}`, {
         method: 'POST',
@@ -69,16 +70,12 @@ export default function AdminDashboard() {
       })
 
       if (res.ok) {
-        if (type === 'questions') {
-          setPendingQuestions(prev => prev.filter(q => q.id !== id))
-        } else {
-          setPendingReviews(prev => prev.filter(r => r.id !== id))
-        }
+        fetchAllData() // Refresh list
       } else {
-        alert('Action failed to execute.')
+        alert('Action failed.')
       }
     } catch (err) {
-      console.error('Error performing admin action:', err)
+      console.error(err)
     }
   }
 
@@ -94,7 +91,7 @@ export default function AdminDashboard() {
             onChange={(e) => setPassword(e.target.value)}
             className="w-full p-2 mb-4 bg-gray-700 rounded border border-gray-600 focus:outline-none"
           />
-          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 p-2 rounded font-semibold transition">
+          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 p-2 rounded font-semibold">
             Login
           </button>
         </form>
@@ -106,73 +103,66 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Admin Moderation Queue</h1>
-          <button 
-            onClick={fetchPendingData}
-            className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm font-medium transition"
-          >
-            {loading ? 'Refreshing...' : 'Refresh Queue'}
+          <h1 className="text-3xl font-bold text-gray-800">Master Admin Control Panel</h1>
+          <button onClick={fetchAllData} className="bg-gray-800 text-white px-4 py-2 rounded text-sm">
+            {loading ? 'Loading...' : 'Refresh All'}
           </button>
         </div>
         
-        {/* Pending Questions Section */}
+        {/* All Questions Section */}
         <section className="mb-10">
-          <h2 className="text-xl font-semibold text-blue-600 mb-4">Pending Questions ({pendingQuestions.length})</h2>
-          {pendingQuestions.length === 0 ? (
-            <p className="text-gray-500 bg-white p-4 rounded shadow-sm border border-gray-200">No pending questions.</p>
+          <h2 className="text-xl font-semibold text-blue-600 mb-4">All Questions ({questions.length})</h2>
+          {questions.length === 0 ? (
+            <p className="text-gray-500 bg-white p-4 rounded shadow-sm">No questions found.</p>
           ) : (
-            pendingQuestions.map(q => (
-              <div key={q.id} className="bg-white p-5 rounded-lg shadow-md mb-4 flex justify-between items-start border border-gray-200">
-                <div className="pr-4">
-                  <h3 className="font-bold text-lg text-gray-800">{q.title}</h3>
-                  <p className="text-gray-600 text-sm mt-1 whitespace-pre-wrap">{q.content}</p>
-                  <span className="text-xs bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-medium mt-3 inline-block">#{q.tags}</span>
+            questions.map(q => (
+              <div key={q.id} className="bg-white p-5 rounded-lg shadow-md mb-4 flex justify-between items-start border">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-lg text-gray-800">{q.title}</h3>
+                    <span className={`text-xs px-2 py-0.5 rounded font-semibold ${q.isApproved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                      {q.isApproved ? 'Public / Approved' : 'Pending Review'}
+                    </span>
+                  </div>
+                  <p className="text-gray-600 text-sm mt-1">{q.content}</p>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
-                  <button 
-                    onClick={() => handleAction('questions', q.id, 'approve')} 
-                    className="bg-green-600 hover:bg-green-700 text-white px-3.5 py-1.5 rounded text-sm font-medium transition"
-                  >
-                    Approve
-                  </button>
-                  <button 
-                    onClick={() => handleAction('questions', q.id, 'delete')} 
-                    className="bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded text-sm font-medium transition"
-                  >
-                    Delete
-                  </button>
+                  {q.isApproved ? (
+                    <button onClick={() => handleAction('questions', q.id, 'unapprove')} className="bg-yellow-600 text-white px-3 py-1.5 rounded text-sm">Hide</button>
+                  ) : (
+                    <button onClick={() => handleAction('questions', q.id, 'approve')} className="bg-green-600 text-white px-3 py-1.5 rounded text-sm">Approve</button>
+                  )}
+                  <button onClick={() => handleAction('questions', q.id, 'delete')} className="bg-red-600 text-white px-3 py-1.5 rounded text-sm">Delete</button>
                 </div>
               </div>
             ))
           )}
         </section>
 
-        {/* Pending Teacher Reviews Section */}
+        {/* All Reviews Section */}
         <section>
-          <h2 className="text-xl font-semibold text-blue-600 mb-4">Pending Teacher Reviews ({pendingReviews.length})</h2>
-          {pendingReviews.length === 0 ? (
-            <p className="text-gray-500 bg-white p-4 rounded shadow-sm border border-gray-200">No pending teacher reviews.</p>
+          <h2 className="text-xl font-semibold text-blue-600 mb-4">All Teacher Reviews ({reviews.length})</h2>
+          {reviews.length === 0 ? (
+            <p className="text-gray-500 bg-white p-4 rounded shadow-sm">No reviews found.</p>
           ) : (
-            pendingReviews.map(r => (
-              <div key={r.id} className="bg-white p-5 rounded-lg shadow-md mb-4 flex justify-between items-start border border-gray-200">
-                <div className="pr-4">
-                  <h3 className="font-bold text-lg text-gray-800">{r.teacherName} <span className="text-sm font-normal text-gray-500">({r.courseCode})</span></h3>
-                  <p className="text-gray-600 text-sm mt-1 whitespace-pre-wrap">{r.reviewText}</p>
-                  <span className="text-xs bg-yellow-100 text-yellow-800 px-2.5 py-1 rounded-full font-medium mt-3 inline-block">Rating: {r.rating}/5</span>
+            reviews.map(r => (
+              <div key={r.id} className="bg-white p-5 rounded-lg shadow-md mb-4 flex justify-between items-start border">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-lg text-gray-800">{r.teacherName} <span className="text-sm font-normal text-gray-500">({r.courseCode})</span></h3>
+                    <span className={`text-xs px-2 py-0.5 rounded font-semibold ${r.isApproved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                      {r.isApproved ? 'Public / Approved' : 'Pending Review'}
+                    </span>
+                  </div>
+                  <p className="text-gray-600 text-sm mt-1">{r.reviewText}</p>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
-                  <button 
-                    onClick={() => handleAction('reviews', r.id, 'approve')} 
-                    className="bg-green-600 hover:bg-green-700 text-white px-3.5 py-1.5 rounded text-sm font-medium transition"
-                  >
-                    Approve
-                  </button>
-                  <button 
-                    onClick={() => handleAction('reviews', r.id, 'delete')} 
-                    className="bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded text-sm font-medium transition"
-                  >
-                    Delete
-                  </button>
+                  {r.isApproved ? (
+                    <button onClick={() => handleAction('reviews', r.id, 'unapprove')} className="bg-yellow-600 text-white px-3 py-1.5 rounded text-sm">Hide</button>
+                  ) : (
+                    <button onClick={() => handleAction('reviews', r.id, 'approve')} className="bg-green-600 text-white px-3 py-1.5 rounded text-sm">Approve</button>
+                  )}
+                  <button onClick={() => handleAction('reviews', r.id, 'delete')} className="bg-red-600 text-white px-3 py-1.5 rounded text-sm">Delete</button>
                 </div>
               </div>
             ))
