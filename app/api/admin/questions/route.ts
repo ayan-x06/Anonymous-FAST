@@ -5,10 +5,7 @@ export async function GET() {
   try {
     const questions = await prisma.question.findMany({
       include: {
-        answers: true, // This brings back the answers with the questions
-      },
-      orderBy: {
-        createdAt: 'desc',
+        answers: true,
       },
     })
     return NextResponse.json(questions)
@@ -24,10 +21,7 @@ export async function DELETE(request: Request) {
     const id = searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 })
 
-    // Delete associated answers first to prevent foreign key errors
     await prisma.answer.deleteMany({ where: { questionId: id } })
-    
-    // Then delete the question
     await prisma.question.delete({ where: { id } })
 
     return NextResponse.json({ success: true })
